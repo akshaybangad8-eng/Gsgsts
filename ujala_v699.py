@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 # ============================================================
 #  ⚙️  CONFIG — EDIT THESE
 # ============================================================
-BOT_TOKEN               = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
-BOT_USERNAME            = ""   # startup pe auto-set hoga
+BOT_TOKEN               = os.getenv("BOT_TOKEN", "8925555368:AAHzbHSFFYf7Vo8cIgV7mcdzndbnHY0axhQ")
+BOT_USERNAME            = ""   # startup pe auto-set hogya
 REQUIRED_CHANNELS       = ["@thetricksmaster"]
-ADMIN_IDS = [123456789]
+ADMIN_IDS = [672211281]
 
 WINNER_CHANNEL_ID       = -1004483528498
 FIREBASE_LOG_CHANNEL_ID = -1003758000001
@@ -47,7 +47,7 @@ BARCODE  = "8902102126232"
 MAX_FIREBASE_LINKS   = 1   # 1 link per session — each user isolated
 COOLDOWN_MINUTES     = 3
 EXPIRE_WARN_MINUTES  = 10
-REFER_VALIDITY_HOURS = 1   # hours awarded per refer reward (flat, no tiers)
+REFER_VALIDITY_HOURS = 1   # hours awarded per  refer reward (flat, no tiers)
 
 REWARD_SMS_MAX_WAIT      = 1800
 REWARD_SMS_POLL_INTERVAL = 15
