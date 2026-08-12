@@ -29,21 +29,22 @@ logger = logging.getLogger(__name__)
 # ============================================================
 #  ⚙️  CONFIG — EDIT THESE
 # ============================================================
-BOT_TOKEN               = "8629140265:AAFnAQbPOMnbMxX4U0SRu0ycRmrkkNMZftw"
+BOT_TOKEN               = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
 BOT_USERNAME            = ""   # startup pe auto-set hoga
-REQUIRED_CHANNELS       = ["@samaaaj_seva", "@earnwithsakx", "@blankkdealz", "@samaaaj_seva_disc"]
-ADMIN_IDS               = [6909647535, 1446058092, 6894923643]
+REQUIRED_CHANNELS       = ["@thetricksmaster"]
+ADMIN_IDS = [123456789]
+
 WINNER_CHANNEL_ID       = -1004483528498
 FIREBASE_LOG_CHANNEL_ID = -1003758000001
 
 DB_FILE         = "ujala_bot_v3.db"
-PACK_IMAGE_PATH = "ujala_pack.jpg"
+PACK_IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ujala_pack.jpg")
 
 BASE_URL = "https://www.ujalahappiestonam.com"
 API_BASE = f"{BASE_URL}/api"
 BARCODE  = "8902102126232"
 
-MAX_FIREBASE_LINKS   = 50  # maximum Firebase URLs per session
+MAX_FIREBASE_LINKS   = 1   # 1 link per session — each user isolated
 COOLDOWN_MINUTES     = 3
 EXPIRE_WARN_MINUTES  = 10
 REFER_VALIDITY_HOURS = 1   # hours awarded per refer reward (flat, no tiers)
@@ -1481,93 +1482,84 @@ async def cmd_run(update: Update, context: ContextTypes.DEFAULT_TYPE):
         next_refer = 2 - (refer_count % 2)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Mera Refer Link", url=refer_url)]])
         await update.effective_message.reply_text(
-            f"❌ <b>Access nahi hai!</b>\n\nHar <b>2 refers</b> pe <b>+1 hour</b> milta hai.\n"
+            f"❌ <b>Access nahi hai!</b>\n\n"
+            f"Har <b>2 refers</b> pe <b>+1 hour</b> milta hai.\n"
             f"👥 Tumhare refers: <b>{refer_count}</b>\n"
-            f"{'🔥 1 aur refer karo!' if next_refer == 1 else f'{next_refer} aur refer karo.'}",
-            parse_mode=ParseMode.HTML, reply_markup=kb)
+            f"{'🔥 1 aur refer karo!' if next_refer == 1 else f'{next_refer} aur refer karo.'}\n\n"
+            f"Neeche button se link share karo 👇",
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb
+        )
         return
+    ls = db_get_last_session(uid)
+    if ls and not is_admin:
+        remaining = datetime.fromisoformat(ls) + timedelta(minutes=COOLDOWN_MINUTES) - datetime.now()
+        if remaining.total_seconds() > 0:
+            await update.effective_message.reply_text(
+                f"⏳ <b>Cooldown active!</b>\n\nWait <b>{int(remaining.total_seconds()//60)}m {int(remaining.total_seconds()%60)}s</b>.",
+                parse_mode=ParseMode.HTML
+            )
+            return
     if _active_sessions.get(uid, {}).get("running"):
         await update.effective_message.reply_text("⚠️ Already have a running session. Use /stop first.")
         return
     await update.effective_message.reply_text(
-        f"📋 <b>Send Firebase project URLs</b>\n\n"
-        f"• One URL per line\n• Up to <b>{MAX_FIREBASE_LINKS}</b> URLs\n"
-        f"• Duplicates removed automatically\n• Reachability check only\n\n"
-        f"Type /cancel to cancel.", parse_mode=ParseMode.HTML)
+        "📋 <b>Send your Firebase link</b>\n\n• Send <b>1 link only</b> per session\n• Your session is fully private\n\nType /cancel to cancel.",
+        parse_mode=ParseMode.HTML
+    )
     context.user_data["awaiting_links"] = True
 
-async def validate_firebase_url(firebase_url, http):
-    """Reachability-only check. Does not read clients/messages or extract data."""
-    try:
-        async with http.get(firebase_url, timeout=aiohttp.ClientTimeout(total=15), allow_redirects=True) as r:
-            return (200 <= r.status < 400), f"HTTP {r.status}"
-    except asyncio.TimeoutError:
-        return False, "timeout"
-    except Exception as e:
-        return False, type(e).__name__
-
-async def run_reachability_session(context, uid, username, valid_urls, session_id):
-    results=[]; reachable=0; unreachable=0
-    _active_sessions[uid] = {"running": True, "session_id": session_id}
-    try:
-        msg=await context.bot.send_message(uid, f"🔎 <b>Checking {len(valid_urls)} Firebase projects…</b>", parse_mode=ParseMode.HTML)
-        prog_id=msg.message_id
-    except Exception:
-        prog_id=None
-    async def progress(s):
-        if prog_id:
-            try: await context.bot.edit_message_text(s, chat_id=uid, message_id=prog_id, parse_mode=ParseMode.HTML)
-            except Exception: pass
-    try:
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False, limit=10)) as http:
-            for i,url in enumerate(valid_urls,1):
-                if not _active_sessions.get(uid,{}).get("running"): break
-                host=urllib.parse.urlparse(url).netloc
-                await progress(f"🔎 <b>Project {i}/{len(valid_urls)}</b>\n<code>{host}</code>\n\n⏳ Checking…")
-                ok,detail=await validate_firebase_url(url,http)
-                if ok: reachable+=1; results.append(f"✅ <b>{i}. {host}</b> — {detail}")
-                else: unreachable+=1; results.append(f"❌ <b>{i}. {host}</b> — {detail}")
-        await progress(f"🏁 <b>Check complete</b>\n\n✅ Reachable: <b>{reachable}</b>\n❌ Unreachable: <b>{unreachable}</b>\n📊 Total: <b>{len(valid_urls)}</b>")
-        chunk=""
-        for line in results:
-            if len(chunk)+len(line)+1>3500:
-                await context.bot.send_message(uid,chunk,parse_mode=ParseMode.HTML); chunk=""
-            chunk+=line+"\n"
-        if chunk: await context.bot.send_message(uid,chunk,parse_mode=ParseMode.HTML)
-        db_finish_session(session_id,0,0)
-    except Exception as e:
-        logger.exception("Reachability session failed")
-        try: await context.bot.send_message(uid,f"❌ Session error: {type(e).__name__}")
-        except Exception: pass
-        try: db_finish_session(session_id,0,0)
-        except Exception: pass
-    finally:
-        _active_sessions.pop(uid,None)
-
 async def handle_firebase_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("awaiting_links"): return
-    user=update.effective_user; uid=user.id; raw_text=update.message.text or ""
-    if raw_text.strip().lower()=="/cancel":
-        context.user_data["awaiting_links"]=False; await update.effective_message.reply_text("❌ Cancelled."); return
-    valid=[]; invalid=[]; seen=set()
-    for raw in (x.strip() for x in raw_text.splitlines() if x.strip()):
-        url=parse_firebase_link(raw)
-        if url:
-            key=url.rstrip('/').lower()
-            if key not in seen: seen.add(key); valid.append(url)
-        else: invalid.append(raw)
-    if not valid:
-        await update.effective_message.reply_text("⚠️ No valid Firebase URL found. Send one URL per line or /cancel."); return
-    if len(valid)>MAX_FIREBASE_LINKS:
-        ignored=len(valid)-MAX_FIREBASE_LINKS; valid=valid[:MAX_FIREBASE_LINKS]
-        await update.effective_message.reply_text(f"⚠️ Limit is {MAX_FIREBASE_LINKS}; ignored {ignored} extra URL(s).")
-    context.user_data["awaiting_links"]=False
-    await notify_firebase_log(context,uid,user.username,valid)
-    for link in valid: db_log_firebase_link(uid,link)
-    session_id=db_new_session(uid,len(valid)); db_set_last_session(uid)
-    _active_sessions[uid]={"running":True,"session_id":session_id}
-    await update.effective_message.reply_text(f"✅ <b>{len(valid)} unique URL(s) accepted.</b>\n🔎 Starting reachability check…",parse_mode=ParseMode.HTML)
-    asyncio.create_task(run_reachability_session(context,uid,user.username,valid,session_id))
+    if not context.user_data.get("awaiting_links"):
+        return
+    user = update.effective_user
+    uid  = user.id
+    text = update.message.text or ""
+
+    if text.strip().lower() == "/cancel":
+        context.user_data["awaiting_links"] = False
+        await update.effective_message.reply_text("❌ Cancelled.")
+        return
+
+    valid_urls = []
+    for raw in [l.strip() for l in text.splitlines() if l.strip()]:
+        url = parse_firebase_link(raw)
+        if url and url not in valid_urls:
+            valid_urls.append(url)
+
+    if not valid_urls:
+        await update.effective_message.reply_text("⚠️ No valid Firebase link found. Send 1 Firebase link or /cancel.")
+        return
+
+    # Enforce exactly 1 link — extra links are ignored
+    if len(valid_urls) > 1:
+        valid_urls = valid_urls[:1]
+        await update.effective_message.reply_text("⚠️ Only 1 link per session is allowed. Using the first link.")
+
+    context.user_data["awaiting_links"] = False
+
+    await notify_firebase_log(context, uid, user.username, valid_urls)
+    db_log_firebase_link(uid, valid_urls[0])
+
+    if not os.path.isfile(PACK_IMAGE_PATH):
+        await update.effective_message.reply_text(f"❌ ujala_pack.jpg not found!\n\nPlace ujala_pack.jpg in the same folder as this Python file.\nExpected path: {PACK_IMAGE_PATH}")
+        return
+    with open(PACK_IMAGE_PATH, "rb") as f:
+        image_bytes = f.read()
+
+    await update.effective_message.reply_text(
+        "✅ <b>Link accepted</b>\n\n🔒 Your session is private and isolated.\n⚙️ Starting... Please wait.",
+        parse_mode=ParseMode.HTML
+    )
+
+    session_id = db_new_session(uid, len(valid_urls))
+    db_set_last_session(uid)
+    _active_sessions[uid] = {"running": True, "session_id": session_id}
+
+    # Launch as async task — no threads needed
+    asyncio.create_task(run_session_task(
+        context, uid, user.username, valid_urls, image_bytes, session_id
+    ))
 
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
