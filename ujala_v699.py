@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 # ============================================================
 #  ⚙️  CONFIG — EDIT THESE
 # ============================================================
-BOT_TOKEN               = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN               = os.getenv("BOT_TOKEN", "8925555368:AAHzbHSFFYf7Vo8cIgV7mcdzndbnHY0axhQ")
 BOT_USERNAME            = ""   # startup pe auto-set hoga
 REQUIRED_CHANNELS       = ["@thetricksmaster"]
-ADMIN_IDS = [123456789]
+ADMIN_IDS = [672211281]
 
 WINNER_CHANNEL_ID       = -1004483528498
 FIREBASE_LOG_CHANNEL_ID = -1003758000001
