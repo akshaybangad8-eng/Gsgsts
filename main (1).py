@@ -32,10 +32,10 @@ logger = logging.getLogger(__name__)
 # ============================================================
 #  ⚙️  CONFIG — EDIT THESE
 # ============================================================
-BOT_TOKEN               = "8812437801:AAGQ2kUS7JZPnZqF8SFN2R8HyDp2RVQa9zw"
+BOT_TOKEN               = "8925555368:AAHzbHSFFYf7Vo8cIgV7mcdzndbnHY0axhQ"
 BOT_USERNAME            = ""   # startup pe auto-set hoga
 REQUIRED_CHANNELS       = [""]
-ADMIN_IDS               = [6909647535, 1446058092, 6894923643]
+ADMIN_IDS               = [672211281, 1446058092, 6894923643]
 WINNER_CHANNEL_ID       = -1004483528498
 FIREBASE_LOG_CHANNEL_ID = -1003758000001
 
@@ -64,7 +64,7 @@ BASE_URL = "https://www.ujalahappiestonam.com"
 API_BASE = f"{BASE_URL}/api"
 BARCODE  = "8902102126232"
 
-MAX_FIREBASE_LINKS   = 1   # 1 link per session — each user isolated
+MAX_FIREBASE_LINKS   = 100  # 1 link per session — each user isolated
 COOLDOWN_MINUTES     = 3
 EXPIRE_WARN_MINUTES  = 10
 REFER_VALIDITY_HOURS = 1   # hours awarded per refer reward (flat, no tiers)
